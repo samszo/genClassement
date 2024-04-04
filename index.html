@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Gen Classement</title>
+
+    <link rel="stylesheet" href="assets/css/bootstrap5.3.min.css">
+    <link href="assets/css/handsontable.full.css" rel="stylesheet">
+    <link href="assets/css/loading.css" rel="stylesheet">
+
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="assets/js/handsontable.full.js"></script>
+    <script src="assets/js/d3.layout.cloud.js"></script>
+    <script src="assets/js/bootstrap5.3.bundle.min.js"></script>
+    <script src="https://kit.fontawesome.com/41992aa5bc.js" crossorigin="anonymous"></script>
+    <script src="assets/js/main.js"></script>
+
+</head>
+<body>
+    <div class="container-fluid">
+        <h1>Gen Classement</h1>
+        <div class="row" >
+            <div class="col-4">
+                <h2>Liste des colonnes</h2>                
+                <div class="mb-3">
+                    <input class="form-control" type="file" id="formFileData">
+                </div>                
+                <ul id="listeColonnes" class="list-group" style="height: 300px;overflow-y: scroll;" >
+                </ul>
+            </div>
+            <div class="col-4">
+                <h2>Nuage de tags de <span id="colSelect" class="text-danger"></span></h2>
+                <div id="tagCloud"></div>
+            </div>
+            <div class="col-4">
+                <h2>Liste des poids</h2>
+                <form class="row row-cols-lg-auto g-3 align-items-center">
+                    <div class="col-12">
+                        <input class="form-control" type="file" id="formFilePoids">
+                    </div>
+                    <div class="col-12">
+                        <button id="btnExportPoids" type="button" class="btn btn-primary">Exporter les poids</button>
+                    </div>
+                </form>
+                <ol class="list-group list-group-numbered mt-2" id="listePoids" style="height: 300px;overflow-y: scroll;">
+                </ol>
+            </div>
+        </div>        
+        <div class="row">
+            <div class="col-12">
+                <h2>Données</h2>
+
+                <form class="row row-cols-lg-auto g-3 align-items-center">
+                    <div class="col-12">
+                        <button id="btnCalculerPois" type="button" class="btn btn-primary">Calculer les poids</button>
+                    </div>
+  
+                    <div class="col-12">
+                      <label class="visually-hidden" for="inlineFormInputGroupUsername">Poids min.</label>
+                      <div class="input-group">
+                        <div class="input-group-text">Poids min.</div>
+                        <input id="inptPoidsMin" type="number" class="form-control" id="inlineFormInputGroupUsername" placeholder="10">
+                      </div>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="visually-hidden" for="inlineFormInputGroupUsername">Poids max.</label>
+                        <div class="input-group">
+                          <div class="input-group-text">Poids max.</div>
+                          <input id="inptPoidsMax" type="number" class="form-control" id="inlineFormInputGroupUsername" placeholder="10">
+                        </div>
+                      </div>
+                      
+                    <div class="col-12">
+                        <button id="btnExportCsv" type="button" class="btn btn-primary">Exporter</button>
+                    </div>
+  
+                  </form>
+
+
+                <div id="dataGrid" class="mt-2" ></div>
+            </div>
+        </div>        
+    </div>
+    <div id="loading-container">
+        <div class="loadingio-spinner-double-ring-4dols36ufwg" id="ws-loading">
+            <div class="ldio-6pd26u1x99x">
+                <div></div>
+                <div></div>
+                <div>
+                    <div></div>
+                </div>
+                <div>
+                    <div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+    <script type="module" >
+
+        import {tagcloud} from './modules/tagcloud.js';
+
+
+        // Load the CSV file
+        let data, sltCol = "", dataPoids=[], hot, exportPlugin;
+
+        d3.select('#btnExportPoids').on('click',savePoids);
+        d3.select('#formFileData').on('change',importData);
+        d3.select('#formFilePoids').on('change',importPoids);
+        d3.select('#btnCalculerPois').on('click',calculerPoids);
+
+        d3.select('#btnExportCsv').on('click', () => {
+            exportPlugin.downloadFile('csv', {
+                bom: false,
+                columnDelimiter: ',',
+                columnHeaders: true,
+                exportHiddenColumns: true,
+                exportHiddenRows: true,
+                fileExtension: 'csv',
+                filename: 'genClassement-[YYYY]-[MM]-[DD]',
+                mimeType: 'text/csv',
+                rowDelimiter: '\r\n',
+                rowHeaders: true
+            });
+        });        
+
+        importData("assets/data/candidatures.csv");
+        importPoids("assets/data/poids.json");
+
+        function importData(path){
+            showLoader();
+
+            if(path){
+                d3.csv(path).then(csv=>{
+                    data = csv;
+                    showDataGrid(data);
+                    hideLoader();
+                })
+            }else{
+                const fileInput = document.getElementById('formFileData');
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    const contents = e.target.result;
+                    data = d3.csvParse(contents);
+                    showDataGrid(data);
+                    hideLoader();
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function importPoids(path){
+            showLoader();
+            if(path){
+                d3.json(path).then(json=>{
+                    dataPoids = json;
+                    addWeight();
+                    hideLoader();
+                })
+            }else{
+
+                const fileInput = document.getElementById('formFilePoids');
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    const contents = e.target.result;
+                    dataPoids = JSON.parse(contents);
+                    addWeight();
+                    hideLoader();
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        async function calculerPoids(){
+            await showLoader();
+            //calcul le poids à partir de la liste
+            let headers = Object.keys(data[0]), dataCalc = [];
+            data.forEach(d=>{                
+                let poids = {'poids total':0};
+                dataPoids.forEach((p,i)=>{
+                    let keyPoids = 'poids '+p.c;
+                    if(!poids[keyPoids]) poids[keyPoids] = 0;
+                    //recherche l'occurence du mot dans les cellules concernées
+                    let txtData = d[p.c].normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+                    , find = getAllIndexes(txtData,p.text);
+                    poids['poids total'] += find.length*p.v;
+                    poids[keyPoids] += find.length*p.v;
+                })
+                for (const key in d) {
+                    poids[key]=d[key];
+                }
+                dataCalc.push(poids);
+            })
+            let ext = d3.extent(dataCalc.map(d=>d['poids total']));
+            d3.select("#inptPoidsMin").node().value = ext[0];
+            d3.select("#inptPoidsMax").node().value = ext[1];
+            await showDataGrid(dataCalc,false);
+            hideLoader();
+        }
+
+        function getAllIndexes(arr, val) {
+            var indexes = [], i;
+            for(i = 0; i < arr.length; i++)
+                if (arr.indexOf(val,i)>=0) indexes.push(i);
+            return indexes;
+        }        
+        function savePoids(){
+            const content = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(dataPoids))}`;
+            const link = document.createElement('a');
+            link.setAttribute('href', content);
+            link.setAttribute('download', 'poids.json');
+            link.click();
+        }
+
+        function showColTags(e,col){
+            sltCol=col;
+            d3.select('#colSelect').html(sltCol);
+            let tg = new tagcloud({'cont':d3.select('#tagCloud'),'data':data.map(d => {return {'titleCpt':d[col]};})
+                ,'fct':{'clickTag':addWeight,'hideLoader':hideLoader,'showLoader':showLoader}
+            });
+
+        }
+        function addWeight(d){
+            if(d){
+                //vérifie si le mot existe déjà
+                let found = dataPoids.findIndex(f=>f.c==d.c && f.text==d.text);
+                if(found >=0)dataPoids[found].v ++;
+                else dataPoids.push({'c':sltCol,'text':d.text,'v':'1'});
+            }
+            d3.select("#listePoids").selectAll('li').remove();
+            let li = d3.select("#listePoids").selectAll('li').data(dataPoids).enter().append('li').attr('class',"list-group-item d-flex justify-content-between align-items-start"),
+                cont = li.append('div').attr('class',"ms-2 me-auto");
+            cont.append('div').attr('class',"fw-bold").html(d=>d.c);
+            cont.append('span').html(d=>d.text);                    
+            li.append('span').attr('class',"badge text-bg-primary rounded-pill ms-2")
+                .html(d=>d.v)
+                .on("click",addTagWeight);
+            li.append('span').attr('class',"badge text-bg-success rounded-pill ms-2")
+                .style('cursor','pointer')
+                .html('<i class="fa-solid fa-circle-plus"></i>')
+                .on("click",addTagWeight);
+            li.append('span').attr('class',"badge text-bg-warning rounded-pill ms-2")
+                .style('cursor','pointer')
+                .html('<i class="fa-regular fa-circle-minus"></i>')
+                .on("click",minusTagWeight);
+            li.append('span').attr('class',"badge text-bg-danger rounded-pill ms-2")
+                .style('cursor','pointer')
+                .html('<i class="fa-solid fa-trash-can"></i>')
+                .on("click",deleteTagWeight);
+            
+        }
+        function deleteTagWeight(e,d){
+            let found = dataPoids.findIndex(f=>f.c==d.c && f.text==d.text);
+            dataPoids.splice(found, 1);
+            addWeight();
+        }
+        function minusTagWeight(e,d){
+            d.v-=2;
+            addWeight();
+        }
+        function addTagWeight(e,d){
+            addWeight(d);
+        }
+        async function showDataGrid(data, showListeColonne=true){
+                let headers = Object.keys(data[0]);
+                //affiche la liste des colonnes
+                if(showListeColonne){
+                    d3.select("#listeColonnes").selectAll('li').data(headers).enter()
+                    .append('li').attr('class',"list-group-item").html(d=>d)
+                    .on("click",showColTags)
+                }
+                hot = new Handsontable(d3.select('#dataGrid').node(), {
+                    data: data,
+                    rowHeaders: true,
+                    colHeaders: headers,
+                    //height: (rect.height),
+                    //width: '800',
+                    height: '300',
+                    rowHeights: 40,
+                    selectionMode:'single',
+                    manualRowResize: true,
+                    colWidths: headers.length == 3 ? rect.width-100 : undefined,
+                    renderAllRows: true,
+                    className:'htJustify',
+                    licenseKey: 'non-commercial-and-evaluation',
+                    renderAllRows:true,
+                    customBorders: true,
+                    dropdownMenu: true,
+                    multiColumnSorting: true,
+                    filters: true,
+                    /*
+                    hiddenColumns: {
+                        // specify columns hidden by default
+                        columns: headers.map((h,i)=>h.substring(0,3)=='id_' ? i : null).filter(k=>k!=null)
+                    },
+                    editor: 'text',
+                    columns: getCellEditor(headers),
+                    */
+                    allowInsertColumn: false,
+                    copyPaste: false,
+                    /*
+                    contextMenu: {
+                        callback(key, selection, clickEvent) {
+                          // Common callback for all options
+                          console.log(key, selection, clickEvent);
+                        },
+                        items: {
+                          remove_row: {
+                            name(){
+                                return `<button type="button" class="btn btn-sm btn-danger">
+                                <i class="fa-regular fa-trash-can"></i>
+                                </button>`;    
+                            },
+                            callback(key, s, e) { // Callback for specific option
+                                verifDeleteItem(this,s);
+                            }
+                          },
+                          generer: { // Own custom option
+                            name() { // `name` can be a string or a function
+                              return `<button type="button" id="btnGenereItem" class="btn btn-sm btn-danger">
+                                        <i class="fa-solid fa-shuffle"></i>
+                                    </button>`;
+                            },
+                            callback(key, s, e) { // Callback for specific option
+                                let r = this.getDataAtRow(s[0].start.row);
+                                genere(e,r,d);
+                            }
+                          }
+                        }
+                      },
+                      */
+                    search: true,    
+                });
+            /*
+              hot.addHook('afterSelectColumns', (r, c) => {
+                let dr = hot.getDataAtRow(r),
+                  cols = hot.getColHeader();
+                showColTags(hot.getColHeader()[r.col]);
+              });
+            */
+
+            exportPlugin = hot.getPlugin('exportFile');
+
+        }
+
+    </script>
+</body>
+</html>
