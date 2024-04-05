@@ -230,9 +230,9 @@
         function addWeight(d){
             if(d){
                 //vérifie si le mot existe déjà
-                let found = dataPoids.findIndex(f=>f.c==d.c && f.text==d.text);
+                let colo = d.c ? d.c : sltCol, found = dataPoids.findIndex(f=>f.c==colo && f.text==d.text);
                 if(found >=0)dataPoids[found].v ++;
-                else dataPoids.push({'c':sltCol,'text':d.text,'v':'1'});
+                else dataPoids.push({'c':colo,'text':d.text,'v':'1'});
             }
             d3.select("#listePoids").selectAll('li').remove();
             let li = d3.select("#listePoids").selectAll('li').data(dataPoids).enter().append('li').attr('class',"list-group-item d-flex justify-content-between align-items-start"),
