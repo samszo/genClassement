@@ -272,6 +272,7 @@
                 let headers = Object.keys(data[0]);
                 //affiche la liste des colonnes
                 if(showListeColonne){
+                    d3.select("#listeColonnes").selectAll('li').remove();
                     d3.select("#listeColonnes").selectAll('li').data(headers).enter()
                     .append('li').attr('class',"list-group-item").html(d=>d)
                     .on("click",showColTags)
