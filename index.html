@@ -133,7 +133,7 @@
         function importData(path){
             showLoader();
 
-            if(path){
+            if(!path.type){
                 d3.csv(path).then(csv=>{
                     data = csv;
                     showDataGrid(data);
